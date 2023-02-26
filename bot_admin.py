@@ -7,7 +7,7 @@ import logging
 import sqlite3
 
 from settings import TEL_TOKEN, ADMIN_LIST
-from bot_client import category_keyboard, text_for_message
+from bot_client import category_keyboard, text_for_message, category_product_dict
 
 tel_token = TEL_TOKEN
 admin_list = ADMIN_LIST
@@ -51,6 +51,7 @@ async def start(message: Message):
     cur.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = cur.fetchone()
     if message.from_user.id in admin_list:
+        category_product_dict(upd=True)
         await message.answer('Добро пожаловать в Админ-Панель! Выберите действие на клавиатуре', reply_markup=kb)
     else:
         if result is None:
@@ -60,7 +61,8 @@ async def start(message: Message):
             if entry is None:
                 cur.execute(f'''INSERT INTO users VALUES ('{message.from_user.id}', '0')''')
                 conn.commit()
-                await message.answer('Привет')
+                await message.answer('Представляю Вашему вниманию витрину магазина Benefittime. '
+                                     'Нажмите на интересующую категорию:', reply_markup=category_keyboard())
         else:
             await message.answer('Ты был заблокирован!')
 
