@@ -7,7 +7,8 @@ import logging
 import sqlite3
 
 from settings import TEL_TOKEN, ADMIN_LIST
-from bot_client import category_keyboard, text_for_message, category_product_dict
+from bot_client import category_keyboard, text_for_message, \
+    category_product_dict, callback_horo, horo_list, horo_detail
 
 tel_token = TEL_TOKEN
 admin_list = ADMIN_LIST
@@ -19,9 +20,11 @@ kb.add(types.InlineKeyboardButton(text="Добавить в ЧС"))
 kb.add(types.InlineKeyboardButton(text="Убрать из ЧС"))
 kb.add(types.InlineKeyboardButton(text="Статистика"))
 kb.add(types.InlineKeyboardButton(text="Витрина магазина Benefittime"))
+kb.add(types.InlineKeyboardButton(text="Гороскоп"))
 
 kb_client = types.ReplyKeyboardMarkup(resize_keyboard=True)
 kb_client.add(types.InlineKeyboardButton(text="витрина"))
+kb_client.add(types.InlineKeyboardButton(text="Гороскоп"))
 
 # Инициализируем проект
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +45,7 @@ class dialog(StatesGroup):
     blacklist = State()
     whitelist = State()
     product_category = State()
+    horo = State()
 
 
 # Обработка команды "/start"
@@ -132,7 +136,7 @@ async def proce(message: types.Message, state: FSMContext):
 
 # Удалять пользователей из ЧС
 @dp.message_handler(content_types=['text'], text='Убрать из ЧС')
-async def hfandler(message: types.Message, state: FSMContext):
+async def hfandler1(message: types.Message, state: FSMContext):
     cur = conn.cursor()
     cur.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = cur.fetchone()
@@ -177,11 +181,38 @@ async def proc(message: types.Message, state: FSMContext):
 
 # добавим статистику для нашего бота
 @dp.message_handler(content_types=['text'], text='Статистика')
-async def hfandler(message: types.Message, state: FSMContext):
+async def hfandler2(message: types.Message, state: FSMContext):
     cur = conn.cursor()
     cur.execute('''select * from users''')
     results = cur.fetchall()
     await message.answer(f'Людей которые когда либо заходили в бота: {len(results)}')
+
+
+@dp.message_handler(content_types=['text'], text='Гороскоп')
+async def hfandler3(message: types.Message, state: FSMContext):
+    text = "Выберете интересующий Вас знак:"
+    kb = horo_list()
+    await message.answer(text, reply_markup=kb)
+    await dialog.horo.set()
+
+
+@dp.callback_query_handler(callback_horo.filter(action=["horo", "day"]), state=dialog.horo)
+async def callbacks(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
+    await call.answer(text='Веду поиск по запросу')
+    value = callback_data['id']
+    if value == 'horo_stop':
+        text = 'Гороскоп завершил диалог. Выбирайте действие в меню или нажмите /start'
+        await bot.send_message(call.from_user.id, text=text, reply_markup=kb_client)
+        await state.finish()
+    else:
+        if callback_data["action"] == "horo":
+            ret_tuple = horo_detail(value)
+        else:
+            horo = value.split(',')
+            ret_tuple = horo_detail(horo_name=horo[1], day=horo[0])
+        text = ret_tuple[0]
+        kb = ret_tuple[1]
+        await bot.send_message(call.from_user.id, text=text, parse_mode='HTML', reply_markup=kb)
 
 
 @dp.message_handler(content_types=['text'])  # , text='витрина')
@@ -195,15 +226,15 @@ async def spam(message: Message):
 async def proc(message: types.Message, state: FSMContext):
     stop_list = ['STOP', 'Stop', 'stop']
     if message.text in stop_list:
-        await state.finish()
         if message.from_user.id in admin_list:
             await message.answer('Добро пожаловать в Админ-Панель! Выберите действие на клавиатуре', reply_markup=kb)
         else:
             await message.answer('Возвращайтесь', reply_markup=kb_client)
+        await state.finish()
     else:
         for text_message in text_for_message(message.text):
             await message.answer(text_message, reply_markup=category_keyboard(), parse_mode='HTML', disable_web_page_preview=text_message[1])
-    # await state.finish()
+
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

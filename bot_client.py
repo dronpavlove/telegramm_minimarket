@@ -1,7 +1,11 @@
 from aiogram import types
+from aiogram.utils.callback_data import CallbackData
 import requests
 import time
+from settings import horo_data, day_data
+from bs4 import BeautifulSoup as Soup
 
+callback_horo = CallbackData("post", "id", "action")
 products_dict = {}
 timer = 0
 
@@ -79,3 +83,60 @@ def text_for_message(category: str):
                 photo = f'http://185.105.88.151/media/{product["photos"][0]}'
             text_message += photo
             yield text_message
+
+
+def horo_list():
+    """
+    Возвращает клавиатуру из кнопок ЗНАКИ ГОРОСКОПА
+    :return:
+    """
+    markup = types.InlineKeyboardMarkup(row_width=4)
+    count = 0
+    keyboard_list = []
+    for key, value in horo_data.items():
+        count += 1
+        button = types.InlineKeyboardButton(key, callback_data=callback_horo.new(id=value, action='horo'))
+        keyboard_list.append(button)
+        if count % 4 == 0:
+            markup.row(keyboard_list[0], keyboard_list[1], keyboard_list[2], keyboard_list[3])
+            keyboard_list = []
+    return markup
+
+
+def horo_detail(horo_name, day='today'):
+    """
+    Получает по нажатию кнопки название знака из гороскопа и период.
+    Возвращает текст из mail horo
+    :param horo_name:
+    :param day:
+    :return:
+    """
+    markup = types.InlineKeyboardMarkup(row_width=4)
+    keyboard_list = list()
+    text = str()
+    ru_horo_name = str()
+    for key, value in horo_data.items():
+        if horo_name == value:
+            ru_horo_name = key
+    url = f"https://horo.mail.ru/prediction/{horo_name}/{day}/"
+    response = requests.get(url)
+    res = response.text
+    for key, value in day_data.items():
+        if value == day:
+            text = f'<b>{key}, {ru_horo_name}\n</b>'
+        else:
+            button = types.InlineKeyboardButton(
+                key, callback_data=callback_horo.new(
+                    id=value + f',{horo_name}', action='day'
+                )
+            )
+            keyboard_list.append(button)
+    markup.row(*keyboard_list)
+    markup.row(types.InlineKeyboardButton('Завершить работу гороскопа',
+                                          callback_data=callback_horo.new(
+                                              id='horo_stop', action='horo')
+                                          )
+               )
+    for i in Soup(res, 'html.parser').find_all('p'):
+        text += f'<i>{str(i)[3:-4:]}</i>'
+    return text, markup
