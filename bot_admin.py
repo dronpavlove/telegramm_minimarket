@@ -9,6 +9,7 @@ import sqlite3
 from settings import TEL_TOKEN, ADMIN_LIST
 from bot_client import category_keyboard, text_for_message, \
     category_product_dict, callback_horo, horo_list, horo_detail
+from aelita import aelita  # 205 стр по 19 строк
 
 tel_token = TEL_TOKEN
 admin_list = ADMIN_LIST
@@ -21,10 +22,12 @@ kb.add(types.InlineKeyboardButton(text="Убрать из ЧС"))
 kb.add(types.InlineKeyboardButton(text="Статистика"))
 kb.add(types.InlineKeyboardButton(text="Витрина магазина Benefittime"))
 kb.add(types.InlineKeyboardButton(text="Гороскоп"))
+kb.add(types.InlineKeyboardButton(text="Гадания по книге"))
 
 kb_client = types.ReplyKeyboardMarkup(resize_keyboard=True)
 kb_client.add(types.InlineKeyboardButton(text="витрина"))
 kb_client.add(types.InlineKeyboardButton(text="Гороскоп"))
+kb_client.add(types.InlineKeyboardButton(text="Гадания по книге"))
 
 # Инициализируем проект
 logging.basicConfig(level=logging.INFO)
@@ -46,6 +49,7 @@ class dialog(StatesGroup):
     whitelist = State()
     product_category = State()
     horo = State()
+    text_dialog = State()
 
 
 # Обработка команды "/start"
@@ -216,6 +220,15 @@ async def callbacks(call: types.CallbackQuery, callback_data: dict, state: FSMCo
         await bot.send_message(call.from_user.id, text=text, parse_mode='HTML', reply_markup=kb)
 
 
+@dp.message_handler(content_types=['text'], text='Гадания по книге')
+async def spam(message: Message):
+    key_b = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    key_b.add(types.InlineKeyboardButton(text="Основное меню"))
+    await dialog.text_dialog.set()
+    await message.answer('Введите номер страницы и номер строки через пробел'
+                         '(В книге "Аэлита" 205 страниц по 19 строк)', reply_markup=key_b)
+
+
 @dp.message_handler(content_types=['text'])  # , text='витрина')
 async def spam(message: Message):
     await dialog.product_category.set()
@@ -235,6 +248,25 @@ async def proc(message: types.Message, state: FSMContext):
     else:
         for text_message in text_for_message(message.text):
             await message.answer(text_message, reply_markup=category_keyboard(), parse_mode='HTML', disable_web_page_preview=text_message[1])
+
+
+@dp.message_handler(state=dialog.text_dialog)
+async def proc(message: types.Message, state: FSMContext):
+    stop_list = ['STOP', 'Stop', 'stop', 'Основное меню']
+    if message.text in stop_list:
+        if message.from_user.id in admin_list:
+            await message.answer('Добро пожаловать в Админ-Панель! Выберите действие на клавиатуре', reply_markup=kb)
+        else:
+            await message.answer('Возвращайтесь', reply_markup=kb_client)
+        await state.finish()
+    else:
+        try:
+            num_list = int(message.text.split(' ')[0])
+            num_str = int(message.text.split(' ')[1])
+            text = aelita[num_list][num_str]
+            await message.answer(text=text)
+        except:
+            await message.answer(text='Надо вводить цифры через пробел: немер страницы номер строки 24 55')
 
 
 if __name__ == '__main__':
