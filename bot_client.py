@@ -61,7 +61,7 @@ def category_keyboard():
             inline_keyboard = []
         num += 1
     keyboard.append(inline_keyboard)
-    keyboard.append(["STOP"])
+    keyboard.append(["Основное меню"])
     reply_markup = types.ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
     return reply_markup
 

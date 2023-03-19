@@ -190,6 +190,7 @@ async def hfandler2(message: types.Message, state: FSMContext):
 
 @dp.message_handler(content_types=['text'], text='Гороскоп')
 async def hfandler3(message: types.Message, state: FSMContext):
+    await message.answer('Перешли в режим ГОРОСКОП', reply_markup=types.ReplyKeyboardRemove())
     text = "Выберете интересующий Вас знак:"
     kb = horo_list()
     await message.answer(text, reply_markup=kb)
@@ -224,7 +225,7 @@ async def spam(message: Message):
 
 @dp.message_handler(state=dialog.product_category)
 async def proc(message: types.Message, state: FSMContext):
-    stop_list = ['STOP', 'Stop', 'stop']
+    stop_list = ['STOP', 'Stop', 'stop', 'Основное меню']
     if message.text in stop_list:
         if message.from_user.id in admin_list:
             await message.answer('Добро пожаловать в Админ-Панель! Выберите действие на клавиатуре', reply_markup=kb)
