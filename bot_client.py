@@ -2,7 +2,7 @@ from aiogram import types
 from aiogram.utils.callback_data import CallbackData
 import requests
 import time
-from settings import horo_data, day_data
+from settings import horo_data, day_data, books_data
 from bs4 import BeautifulSoup as Soup
 
 callback_horo = CallbackData("post", "id", "action")
@@ -140,3 +140,13 @@ def horo_detail(horo_name, day='today'):
     for i in Soup(res, 'html.parser').find_all('p'):
         text += f'<i>{str(i)[3:-4:]}</i>'
     return text, markup
+
+
+def predskazaniya(num_list=1, num_str=1, data_name=str()):
+    data = books_data[data_name]
+    count_list = len(data)
+    try:
+        text = data[num_list][num_str - 1]
+    except:
+        text = f'Первое число не должно превышать {count_list}, второе не должно превышать 19'
+    return text

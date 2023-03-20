@@ -1,18 +1,19 @@
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher import FSMContext, filters
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import Message
 import logging
 import sqlite3
 
-from settings import TEL_TOKEN, ADMIN_LIST
+from settings import TEL_TOKEN, ADMIN_LIST, books_data
 from bot_client import category_keyboard, text_for_message, \
-    category_product_dict, callback_horo, horo_list, horo_detail
+    category_product_dict, callback_horo, horo_list, horo_detail, predskazaniya
 from aelita import aelita  # 205 стр по 19 строк
 
 tel_token = TEL_TOKEN
 admin_list = ADMIN_LIST
+books_name_list = [i for i in books_data]
 
 # Обьявляем переменные
 kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -221,16 +222,25 @@ async def callbacks(call: types.CallbackQuery, callback_data: dict, state: FSMCo
 
 
 @dp.message_handler(content_types=['text'], text='Гадания по книге')
-async def spam(message: Message):
+async def spam1(message: Message, state: FSMContext):
     key_b = types.ReplyKeyboardMarkup(resize_keyboard=True)
     key_b.add(types.InlineKeyboardButton(text="Основное меню"))
+    for books_name in books_data:
+        key_b.add(types.InlineKeyboardButton(text=books_name))
+    await message.answer('Выберете книгу в меню', reply_markup=key_b)
+
+
+@dp.message_handler(content_types=['text'], text=books_name_list)
+async def spam2(message: Message, state: FSMContext):
+    await message.reply(f'Выбрана книга {message.text}')
+    async with state.proxy() as data:
+        data['books_name'] = message.text
+    await message.answer('Введите номер страницы и номер строки через пробел')
     await dialog.text_dialog.set()
-    await message.answer('Введите номер страницы и номер строки через пробел'
-                         '(В книге "Аэлита" 205 страниц по 19 строк)', reply_markup=key_b)
 
 
 @dp.message_handler(content_types=['text'])  # , text='витрина')
-async def spam(message: Message):
+async def spam3(message: Message):
     await dialog.product_category.set()
     await message.answer('Представляю Вашему вниманию витрину магазина Benefittime. '
                          'Нажмите на интересующую категорию:', reply_markup=category_keyboard())
@@ -251,7 +261,7 @@ async def proc(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=dialog.text_dialog)
-async def proc(message: types.Message, state: FSMContext):
+async def proc1(message: types.Message, state: FSMContext):
     stop_list = ['STOP', 'Stop', 'stop', 'Основное меню']
     if message.text in stop_list:
         if message.from_user.id in admin_list:
@@ -259,11 +269,19 @@ async def proc(message: types.Message, state: FSMContext):
         else:
             await message.answer('Возвращайтесь', reply_markup=kb_client)
         await state.finish()
+    elif message.text in books_name_list:
+        await message.reply(f'Выбрана книга {message.text}')
+        async with state.proxy() as data:
+            data['books_name'] = message.text
+            await message.answer(f'Вы поменяли книгу на {message.text}. '
+                                 f'Введите номер страницы и номер строки через пробел')
     else:
+        async with state.proxy() as data:
+            books_name = data['books_name']
         try:
             num_list = int(message.text.split(' ')[0])
             num_str = int(message.text.split(' ')[1])
-            text = aelita[num_list][num_str]
+            text = predskazaniya(num_list=num_list, num_str=num_str, data_name=books_name)
             await message.answer(text=text)
         except:
             await message.answer(text='Надо вводить цифры через пробел: немер страницы номер строки 24 55')
